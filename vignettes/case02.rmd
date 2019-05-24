@@ -1,0 +1,155 @@
+---
+title: "Pemilu"
+author: "Widi Astuti"
+date: "4/9/2019"
+output:
+  github_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Kasus 2: Pemilihan Umum Presiden 2019
+
+Indonesia merupakan negara kesatuan dengan bentuk pemerintahan republik. Pemilihan Dewan Perwakilan Rakyat, Dewan Perwakilan Daerah, dan Presiden dilakukan secara langsung. Pemilihan ini pada umumnya disebut dengan istilah “pemilihan umum” atau "pemilu" yang diadakan setiap 5 tahun sekali.
+            
+Tahun 2019 merupakan tahun demokrasi bagi seluruh rakyat Indonesia. Pada tahun tersebut, terdapat dua pasangan yang mendaftarkan diri sebagai calon presiden dan wakil presiden Indonesia periode 2019 – 2024. Kedua belah pihak melakukan kampanye melalui berbagai media, baik media offline maupun media online.
+
+Media sosial menjadi wadah yang baik untuk dimanfaatkan sebagai lokasi penyebaran informasi, interaksi, dan upaya – upaya kampanye lainnya. Tak hanya keduabelah pihak, masing – masing pendukung juga terus menyuarakan pendapatnya melalui media ini. Aktivitas penyebaran informasi melalui media sosial ini telah diarsipkan pada dokumen [**"002_twitter-bot.csv"**](https://github.com/r-academy/mlearn-capstone/raw/master/data-raw/002_twitter-bot.csv).
+
+Diantara sekian banyak pelaku penyebaran informasi, ditemukan bahwasannya tidak semua informasi yang dibagikan bersumber dari manusia. Bot sering ditemukan menjadi pelaku penyebaran informasi secara massal untuk meramaikan interaksi yang terjadi. Hal ini dilakukan untuk memperluas cakupan sebaran informasi dan menimbulkan persepsi bagi pengguna media sosial bahwa calon yang dibicarakan memiliki lebih banyak pendukung.
+
+Sebagai pengamat media sosial, saya harus lebih berhati – hati dalam mengambil kesimpulan dari seluruh interaksi yang terjadi. Saya harus dapat memilah informasi menjadi beberapa kategori, yaitu informasi disebarkan oleh manusia, bot, atau yang dicurigai sebagai bot. Alasan dibalik pentingnya melakukan pemilahan ini yaitu mengingat bahwasannya informasi yang disampaikan oleh bot tidak dapat disamakan kualitasnya dengan yang disampaikan oleh manusia secara langsung. Bot biasanya mengirimkan informasi yang sama secara berulang – ulang, berbeda dengan manusia yang cenderung menyampaikan informasi yang berbeda – beda untuk setiap kiriman.
+
+Saya bertanggungjawab untuk menyediakan informasi yang akurat dan kredibel. Dengan demikian, pemilahan harus saya lakukan dengan cermat untuk memperoleh kesimpulan yang tepat.
+
+1. Bagaimana saya dapat melakukan pemilahan tersebut?
+2. Hasil apa yang dapat saya simpulkan?
+
+```{r}
+# Import Library
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+library(readr)
+library(tidyverse)
+```
+
+Hufff
+
+```{r}
+#Import Data
+pemilu <- read_csv("../data-raw/002_twitter-bot.csv")
+pemilu <- pemilu %>% 
+  drop_na()
+```
+
+### Data Exploration
+```{r}
+#Melihat Kondisi Data
+dim(pemilu)
+head(pemilu,10)
+```
+
+```{r}
+#Melihat Data Kosong
+sum(is.na(pemilu))
+pemilu2<-na.omit(pemilu)
+pemilu<-pemilu[,-2]
+pemilu<-pemilu[,-1]
+pemilu<-pemilu[,-6]
+pemilu<-pemilu[,-11]
+pemilu<-pemilu[,-20]
+pemilu<-pemilu[,21:24]
+```
+
+### Data Preprocessing
+```{r}
+pemilu <- pemilu %>% 
+  mutate(status = str_to_lower(status),
+         status = recode(status, "snspicions" = "suspicious")) %>%
+  filter(status %in% c("bot", "human", "suspicious"))
+
+pemilu %>% 
+  distinct(status)
+pemilu %>% 
+  distinct(account_lang)
+pemilu <- pemilu %>% 
+    filter(account_lang %in% c("en", "id"))
+#Membangi Data Ke Training dan Testing (70:30)
+index_train <- sample(1:nrow(pemilu), 0.7 * nrow(pemilu))
+train <- pemilu[index_train, ]
+test <- pemilu[-index_train, ]
+train %>% 
+  distinct(account_lang)
+test %>% 
+  distinct
+
+```
+
+## Naive Bayes
+
+### Import Library
+```{r}
+#Import Library
+library(naivebayes)
+```
+
+### Model Building
+```{r}
+#Membuat model prediksi Naive Bayes
+nb <- naive_bayes(status ~ ., data = train)
+
+#Melihat model yang telah dibuat 
+nb
+
+#Visualisasi Model
+par(mfrow=c(2,2))
+plot(nb)
+```
+
+
+```{r}
+#Melakukan prediksi dengan data testing
+# freq_terms = findFreqTerms(train, 5)
+# reduced_dtm.train = DocumentTermMatrix(corpus.train, list(dictionary=freq_terms))
+# reduced_dtm.test =  DocumentTermMatrix(corpus.test, list(dictionary=freq_terms))
+
+pred_nb <- predict(nb, test)
+```
+
+### Validation
+```{r}
+#Membuat Confussion Matrix Naive Bayes
+confnb <- table(test$status, pred_nb)
+confnb
+```
+
+```{r}
+TPn <- confnb[1, 1] 
+FNn <- confnb[1, 2] 
+FPn <- confnb[2, 1] 
+TNn <- confnb[2, 2] 
+```
+
+```{r}
+#Menghitung Nilai Akurasi
+accnb <- (TPn + TNn)/(TPn + FNn + FPn + TNn)
+accnb
+```
+
+```{r}
+#Menghitung Nilai Precision
+precnb <- TPn / (TPn + FPn)
+precnb
+```
+
+```{r}
+#Menghitung Nilai Recall
+recnb <- TPn / (TPn + FNn)
+recnb
+```
